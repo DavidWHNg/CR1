@@ -5,12 +5,18 @@ import random
 import csv
 import os
 
-ports_live = False # Set to false if parallel ports not plugged for coding/debugging other parts of exp
+ports_live = None # Set to false if parallel ports not plugged for coding/debugging other parts of exp
 
 ### Experiment details/parameters
 # external equipment connected via parallel ports
 if ports_live == True:
     pport = parallel.ParallelPort(address=0xDFD8) #Get from device Manager
+    context_trig = 64 # Pin 7 light
+    TENS_trig = 128 #Pin 8 TENS in AD instrument
+    shock_high_trig = [range(1,11)] # 10 levels of shock for calibration for high (100%) shock, actual mA specified in PsychLab
+    shock_low_trig = [range(11,21)] # 10 levels of shock for corresponding low (60%) to high shock, actual mA specified in PsychLab
+elif ports_live == None:
+    pport = None #Get from device Manager
     context_trig = 64 # Pin 7 light
     TENS_trig = 128 #Pin 8 TENS in AD instrument
     shock_high_trig = [range(1,11)] # 10 levels of shock for calibration for high (100%) shock, actual mA specified in PsychLab
@@ -65,10 +71,6 @@ win = visual.Window(
     blendMode='avg', useFBO=True,
     units='pix')
 
-# Stimuli
-cue_colours = ([-1,0.10588,-1],[-1,-1,1]) # Must be exactly 2 colours
-cue_colour_names = ('green','blue')
-
 # fixation stimulus
 fix_stim = visual.TextStim(win,
                             text = '+',
@@ -76,10 +78,6 @@ fix_stim = visual.TextStim(win,
                             height = 50,
                             font = 'Roboto Mono Medium')
 
-# # Cue stimuli (if showing visual cue for treatment/no-treatment)
-cue_colours = [(-1,0.10588,-1),(-1,-1,1)]
-cue_width = 100
-cue_height = 100
 cue_duration = 3 #NOTE cue duration still necessary for duration of treatment active time
 
 iti = 2
@@ -91,7 +89,7 @@ response_hold = 1 # How long the rating screen is left on the response (only use
 # TENS/high shock
 # no TENs/high shock
 # context stuff
-context = {"A":0,"B":1}
+context = {"A":0,"B":1,"calibration":0}
 stimulus_name = ["TENS", "pulse monitor"]
 
 # text stimuli
@@ -136,12 +134,6 @@ def instruction_trial(instructions,spacetime):
     win.flip()
     event.waitKeys(keyList=['space'])
     
-                    
-# Demographics
-
-# Calibration
-# Questionnaires
-
 # Create functions
     # Save responses to a CSV file
 def save_data(data):
@@ -176,6 +168,21 @@ def termination_check(): #insert throughout experiment so participants can end a
         exit_screen(instructions_text["termination"])
         core.quit()
 
+
+# Define trials
+# Calibration trials
+trial_order = []
+
+for i in range(1,len(shock_high_trig)):
+    trial = {
+        "phase": "calibration",
+        "blocknum": i,
+        "stimulus": 0,
+        "outcome": 1,
+        "context": "calibration",
+        "trialname": "calibration"
+        } 
+
 # Setting conditioning trial order
 #### 4 x blocks (2 TENS + low shock, 2 control + high shock)
 num_blocks_conditioning = 4
@@ -186,10 +193,7 @@ num_control_high = 2
 num_probe_blocks = 2
 num_probe = 1  # per block
 
-trial_order = []
-
-# Creating trials for first blocks without probes
-
+# Creating conditioning trials for first blocks without probes
 for i in range(1, num_blocks_conditioning - num_probe_blocks + 1):
     temp_trial_order = []
     
@@ -333,6 +337,9 @@ rating_stim['Expectancy'].marker.size = (30,30)
 rating_stim['Expectancy'].marker.color = 'yellow'
 
 #### Make trial
+def show_calib_trial(current_trial):
+    
+
 def show_trial(current_trial):
     # pport.setData(context_trig)
     
