@@ -110,7 +110,7 @@ stimulus_name = ["TENS", "pulse monitor"]
 # text stimuli
 instructions_text = {'welcome': "Welcome to the experiment! Please read the following instructions carefully.",      
                      'calibration' : "Firstly, we're going to calibrate the pain intensity for the shocks you’ll receive in the experiment. As this is a study about pain, we want you to feel a little bit of pain, but nothing unbearable.\
-The machine will start very low, and then will gradually work up. We want to get to a level which is painful but tolerable, so imagine a rating of about a 6 or 7 out of 10, where 1 is no pain and 10 is very painful.\n\
+The machine will start very low, and then will gradually work up. We want to get to a level which is painful but tolerable, so imagine a rating of around 60 to 70 out of 100, where 1 is not painful and 10 is very painful.\n\
 After each shock you will be asked if that level was ok, and if you want to try the next level. You can always come back down if it becomes too uncomfortable!\n\
 Please ask the experimenter if you have any questions at anytime",
                      'experiment' : "You will receive a series of electrical shocks and your task is to rate the intensity of the pain caused by each shock on a scale from 0-10. \
@@ -127,7 +127,9 @@ Please ask the experimenter if you have any questions now.",
 cue_demo_text = 'When you are completely relaxed, press any key to start the next block...'
 
 response_instructions = {'Pain': 'How painful was the shock?',
-                         'Expectancy': 'How painful do you <b>expect</b> the shock to be?'}
+                         'Expectancy': 'How painful do you <b>expect</b> the next shock to be?',
+                         'Shock': 'Press spacebar to activate the shock',
+                         'Check': 'Would you like to try the next level of shock?'}
 
 #create instruction trials
 
@@ -341,7 +343,7 @@ rating_stim = { 'Pain': visual.Slider(win,
                 'Expectancy': visual.Slider(win,
                                     pos = (0,-200),
                                     ticks=[0,100],
-                                    labels=('No pain','High pain'),
+                                    labels=('Not painful','Very painful'),
                                     granularity=0,
                                     size=(400,50),
                                     style=['triangleMarker'],
@@ -352,9 +354,92 @@ rating_stim['Pain'].marker.color = 'yellow'
 rating_stim['Expectancy'].marker.size = (30,30)
 rating_stim['Expectancy'].marker.color = 'yellow'
 
+def create_button(win, text, x, y, name):
+    button_text = visual.TextStim(win,
+                                  text=text,
+                                  color='white',
+                                  height=50,
+                                  pos=(x, y))
+    button = visual.Rect(win,
+                         width=200,
+                         height=80,
+                         fillColor='lightgray',
+                         lineColor='lightgray',
+                         pos=(x, y))
+    return button_text, button
+
+# Define button names and positions
+button_info = {
+        'Higher': (-480,0, 'Next level'),
+        'Stay': (480,0, 'This is moderately painful'),
+        'Lower': (0,0,'Previous level')
+}
+
+# Create buttons and text
+buttons = {}
+for button_name, (x,y,text) in button_info.items():
+    buttons[button_name] = create_button(win, text, x,y, button_name)
+
+
 #### Make trial
+    # calibrations
+calib_level = 0
 def show_calib_trial(current_trial):
+    event.waitKeys(keyList=['space'])
+        ).draw()
+    # Wait for participant to ready up for shock
+    visual.TextStim(win,
+        text=response_instructions['Shock'],
+        pos = (0,-100),
     win.flip()
+    
+    
+    pain_rating.reset()
+    # deliver shock
+    
+    # Get pain rating
+    pain_rating = rating_stim['Pain']
+    
+    while pain_rating.getRating() is None:
+        termination_check()
+            
+        visual.TextStim(win,
+                text=response_instructions['Pain'],
+                pos = (0,-100),
+                ).draw()
+        pain_rating.draw()
+        win.flip()
+         
+    current_trial['pain_response'] = pain_rating.getRating()
+    
+    visual.TextStim(win,
+            text=response_instructions['Check'],
+            pos = (0,-100),
+            ).draw()
+    win.flip()
+        
+        # draw buttons
+    # Ask if participant wants to progress to the next level
+    for button_name, (button_text, button) in buttons.items():
+        button.draw()
+        button_text.draw()
+
+    win.flip()
+    
+    # Monitor mouse events
+    while True:
+        for mouse_event in event.getMouse():
+            if mouse_event.getPressed()[0]:
+                for button_name, (button_text, button) in buttons.items():
+                    if button.contains(mouse_event):
+                        print(f"Button '{button_name}' clicked!")
+                        core.quit()
+
+    # if pain rating < 65, give option to go to the next one. If it's too high, give option to go back a level. Do we need to tell them what the target pain rating is? 
+    
+    # need to also give option to go backwards
+    
+
 
 def show_trial(current_trial):
     if pport != None:
