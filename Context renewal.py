@@ -65,7 +65,7 @@ TENS_trig = 128 #Pin 8 TENS in AD instrument
 shock_high_trig_list = [range(1,11)] # 10 levels of shock for calibration for high (100%) shock, actual mA specified in PsychLab
 shock_low_trig_list = [range(11,21)] # 10 levels of shock for corresponding low (60%) to high shock, actual mA specified in PsychLab
 
-shock_trig = {'high': 1, 'low': 11}
+shock_trig = {'high': 1, 'low': 11} #start on lowest levels
 
 if cb == 1:
     context_trig = {'A': 64, 'B': 0} # Pin 7 light for context A, dark for B
@@ -190,7 +190,7 @@ def termination_check(): #insert throughout experiment so participants can end a
 # Calibration trials
 trial_order = []
 
-for i in range(1,len(shock_high_trig)):
+for i in range(1,len(shock_high_trig_list)):
     trial = {
         "phase": "calibration",
         "blocknum": i,
@@ -218,7 +218,7 @@ for i in range(1, num_blocks_conditioning - num_probe_blocks + 1):
         trial = {
             "phase": "conditioning",
             "blocknum": i,
-            "stimulus": 1,
+            "stimulus": 'TENS',
             "outcome": 'low',
             "context": "A",
             "trialname": "TENS_low"
@@ -229,7 +229,7 @@ for i in range(1, num_blocks_conditioning - num_probe_blocks + 1):
         trial = {
             "phase": "conditioning",
             "blocknum": i,
-            "stimulus": 0,
+            "stimulus": 'control',
             "outcome": 'high',
             "context": "A",
             "trialname": "control_high"
@@ -246,8 +246,8 @@ for i in range(num_blocks_conditioning - num_probe_blocks + 1, num_blocks_condit
         trial = {
             "phase": "conditioning",
             "blocknum": i,
-            "stimulus": 1,
-            "outcome": 1,
+            "stimulus": 'TENS',
+            "outcome": 'high',
             "context": "A",
             "trialname": "probe"
         }
@@ -257,8 +257,8 @@ for i in range(num_blocks_conditioning - num_probe_blocks + 1, num_blocks_condit
         trial = {
             "phase": "conditioning",
             "blocknum": i,
-            "stimulus": 1,
-            "outcome": 0,
+            "stimulus": 'TENS',
+            "outcome": 'low',
             "context": "A",
             "trialname": "TENS_low"
         }
@@ -268,8 +268,8 @@ for i in range(num_blocks_conditioning - num_probe_blocks + 1, num_blocks_condit
         trial = {
             "phase": "conditioning",
             "blocknum": i,
-            "stimulus": 0,
-            "outcome": 1,
+            "stimulus": 'control',
+            "outcome": 'high',
             "context": "A",
             "trialname": "control_high"
         }
@@ -291,8 +291,8 @@ for i in range(1, num_blocks_extinction + 1):
         trial = {
             "phase": "extinction",
             "blocknum": i,
-            "stimulus": 1,
-            "outcome": 0,
+            "stimulus": 'TENS',
+            "outcome": 'high',
             "trialname": "TENS_high"
         }
         if group == 1:
@@ -305,14 +305,48 @@ for i in range(1, num_blocks_extinction + 1):
         trial = {
             "phase": "extinction",
             "blocknum": i,
-            "stimulus": 0,
-            "outcome": 1,
+            "stimulus": 'control',
+            "outcome": 'high',
             "trialname": "control_high"
         }
         if group == 1:
             trial["context"] = "A"
         elif group == 2:
             trial["context"] = "B"
+
+        temp_trial_order.append(trial)
+    
+    random.shuffle(temp_trial_order)
+    trial_order.extend(temp_trial_order)
+    
+    # Setting extinction trial order
+# 4 extinction blocks * (2 TENS + high shock, 2 control + high shock)
+num_blocks_test = 2
+num_TENS_high = 2
+num_control_high = 2
+
+for i in range(1, num_blocks_extinction + 1):
+    temp_trial_order = []
+    
+    for j in range(1, num_TENS_high + 1):
+        trial = {
+            "phase": "test",
+            "blocknum": i,
+            "stimulus": 'TENS',
+            "outcome": 'high',
+            "trialname": "TENS_high",
+            "context": "A"
+        }
+    
+    for k in range(1, num_control_high + 1):
+        trial = {
+            "phase": "test",
+            "blocknum": i,
+            "stimulus": 'control',
+            "outcome": 'high',
+            "trialname": "control_high",
+            "context": "A"
+        }
 
         temp_trial_order.append(trial)
     
@@ -385,12 +419,11 @@ for button_name, (x,y,text) in button_info.items():
     # calibrations
 calib_level = 0
 def show_calib_trial(current_trial):
-    event.waitKeys(keyList=['space'])
-        ).draw()
+    event.waitKeys(keyList=['space']).draw()
     # Wait for participant to ready up for shock
     visual.TextStim(win,
         text=response_instructions['Shock'],
-        pos = (0,-100),
+        pos = (0,-100)),
     win.flip()
     
     
