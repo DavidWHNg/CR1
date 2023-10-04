@@ -8,20 +8,6 @@ import os
 ports_live = None # Set to false if parallel ports not plugged for coding/debugging other parts of exp
 
 ### Experiment details/parameters
-# external equipment connected via parallel ports
-if ports_live == True:
-    pport = parallel.ParallelPort(address=0xDFD8) #Get from device Manager
-    context_trig = 64 # Pin 7 light
-    TENS_trig = 128 #Pin 8 TENS in AD instrument
-    shock_high_trig = [range(1,11)] # 10 levels of shock for calibration for high (100%) shock, actual mA specified in PsychLab
-    shock_low_trig = [range(11,21)] # 10 levels of shock for corresponding low (60%) to high shock, actual mA specified in PsychLab
-elif ports_live == None:
-    pport = None #Get from device Manager
-    context_trig = 64 # Pin 7 light
-    TENS_trig = 128 #Pin 8 TENS in AD instrument
-    shock_high_trig = [range(1,11)] # 10 levels of shock for calibration for high (100%) shock, actual mA specified in PsychLab
-    shock_low_trig = [range(11,21)] # 10 levels of shock for corresponding low (60%) to high shock, actual mA specified in PsychLab
-
 # within experiment parameters
 P_info = {'PID': ''}
 info_order = ['PID']
@@ -51,17 +37,46 @@ while True:
             print(f"Data for participant {P_info['PID']} already exists. Choose a different participant ID.") ### to avoid re-writing existing data
             
         else:
-            if int(P_info["PID"]) % 2 == 0:
-                group = 2
-                group_name = "ABA"
-            else:
+            if int(P_info["PID"]) % 4 == 0:
                 group = 1
+                cb = 1 # context A = light on
+                group_name = "ABA"
+            elif int(P_info["PID"]) % 4 == 1:
+                group = 2
+                cb = 1 
+                group_name = "AAA"
+            elif int(P_info["PID"]) % 4 == 2:
+                group = 1
+                cb = 2 # context A = light off
+                group_name = "ABA"
+            elif int(P_info["PID"]) % 4 == 3:
+                group = 2
+                cb = 2 
                 group_name = "AAA"
             
             break  # Exit the loop if the participant ID is valid
     except KeyboardInterrupt:
         print("Participant info input canceled.")
         break  # Exit the loop if the participant info input is canceled
+    
+# external equipment connected via parallel ports
+TENS_trig = 128 #Pin 8 TENS in AD instrument
+
+shock_high_trig_list = [range(1,11)] # 10 levels of shock for calibration for high (100%) shock, actual mA specified in PsychLab
+shock_low_trig_list = [range(11,21)] # 10 levels of shock for corresponding low (60%) to high shock, actual mA specified in PsychLab
+
+shock_trig = {'high': 1, 'low': 11}
+
+if cb == 1:
+    context_trig = {'A': 64, 'B': 0} # Pin 7 light for context A, dark for B
+elif cb == 2:
+    context_trig = {'A': 0, 'B': 64} # counterbalance context A and B
+    
+if ports_live == True:
+    pport = parallel.ParallelPort(address=0xDFD8) #Get from device Manager
+    
+elif ports_live == None:
+    pport = None #Get from device Manager
 
 # set up screen
 win = visual.Window(
@@ -178,7 +193,7 @@ for i in range(1,len(shock_high_trig)):
         "phase": "calibration",
         "blocknum": i,
         "stimulus": 0,
-        "outcome": 1,
+        "outcome": 'high',
         "context": "calibration",
         "trialname": "calibration"
         } 
@@ -202,7 +217,7 @@ for i in range(1, num_blocks_conditioning - num_probe_blocks + 1):
             "phase": "conditioning",
             "blocknum": i,
             "stimulus": 1,
-            "outcome": 0,
+            "outcome": 'low',
             "context": "A",
             "trialname": "TENS_low"
         }
@@ -213,7 +228,7 @@ for i in range(1, num_blocks_conditioning - num_probe_blocks + 1):
             "phase": "conditioning",
             "blocknum": i,
             "stimulus": 0,
-            "outcome": 1,
+            "outcome": 'high',
             "context": "A",
             "trialname": "control_high"
         }
@@ -312,6 +327,7 @@ for trial in trial_order:
     trial['PID'] = P_info['PID']
     trial['group'] = group
     trial['group_name'] = group_name
+    trial['cb'] = cb
 
 #Test questions
 rating_stim = { 'Pain': visual.Slider(win,
@@ -338,11 +354,11 @@ rating_stim['Expectancy'].marker.color = 'yellow'
 
 #### Make trial
 def show_calib_trial(current_trial):
-    
+    win.flip()
 
 def show_trial(current_trial):
-    # pport.setData(context_trig)
-    
+    if pport != None:
+        pport.setData(context_trig[current_trial['context']])
     fix_stim.draw()
     win.flip()
     core.wait(3)
@@ -361,7 +377,9 @@ def show_trial(current_trial):
         win.flip()
     
     while countdown_timer.getTime() > 8: #turn on TENS at 8 seconds
-        # pport.setData(TENS_trig+context_trig)
+        if pport != None:
+            pport.setData(context_trig[current_trial['context']]+TENS_trig)
+            
         termination_check()
         visual.TextStim(win, 
                         color='white', 
@@ -389,7 +407,10 @@ def show_trial(current_trial):
     fix_stim.draw()
     win.flip()
     
-    core.wait(1)
+    if pport != None:
+        pport.setData(context_trig[current_trial['context']]+shock_trig[current_trial['outcome']])
+        core.wait(0.5)
+        pport.setData(context_trig[current_trial['context']])
     
     # Get pain rating
     pain_rating = rating_stim['Pain']
