@@ -60,12 +60,10 @@ while True:
         break  # Exit the loop if the participant info input is canceled
     
 # external equipment connected via parallel ports
-TENS_trig = 128 #Pin 8 TENS in AD instrument
-
-shock_high_trig_list = [range(1,11)] # 10 levels of shock for calibration for high (100%) shock, actual mA specified in PsychLab
-shock_low_trig_list = [range(11,21)] # 10 levels of shock for corresponding low (60%) to high shock, actual mA specified in PsychLab
-
+shock_high_trig_list = range(1,11) # 10 levels of shock for calibration for high (100%) shock, actual mA specified in PsychLab
+shock_low_trig_list = range(11,21) # 10 levels of shock for corresponding low (60%) to high shock, actual mA specified in PsychLab
 shock_trig = {'high': 1, 'low': 11} #start on lowest levels
+TENS_trig = 128 #Pin 8 TENS in AD instrument
 
 if cb == 1:
     context_trig = {'A': 64, 'B': 0} # Pin 7 light for context A, dark for B
@@ -77,6 +75,38 @@ if ports_live == True:
     
 elif ports_live == None:
     pport = None #Get from device Manager
+
+shock_duration = 0.5
+iti = 2
+pain_response_duration = float('inf')
+response_hold = 1.5 # How long the rating screen is left on the response (only used for Pain ratings)
+
+context = {"A":0,"B":1,"calibration":0}
+stimulus_name = ["TENS", "pulse monitor"]
+
+# text stimuli
+instructions_text = {'welcome': "Welcome to the experiment! Please read the following instructions carefully.",      
+                     'calibration' : "Firstly, we're going to calibrate the pain intensity for the shocks you’ll receive in the experiment. As this is a study about pain, we want you to feel a little bit of pain, but nothing unbearable.\
+The machine will start very low, and then will gradually work up. We want to get to a level which is painful but tolerable, so imagine a rating of around 60 to 70 out of 100, where 1 is not painful and 100 is very painful.\n\
+After each shock you will be asked if that level was ok, and if you want to try the next level. You can always come back down if it becomes too uncomfortable!\n\
+Please ask the experimenter if you have any questions at anytime",
+                     'experiment' : "You will receive a series of electrical shocks and your task is to rate the intensity of the pain caused by each shock on a scale from 0-100. \
+A score of 0 indicates the shock caused NO PAIN A score of 100 indicates the shock was VERY PAINFUL. \
+All shocks will be signaled by a 10sec countdown.\n\
+The shock will occur when an X appears. The " + stimulus_name[group-1] + " will be activated on some trials. \
+As you are waiting for the shock during the countdown, you will also be asked to rate some of your emotions, e.g. expectancy and distress.\n\n\
+Please ask the experimenter if you have any questions now.",
+                        'continue' : "\nPress spacebar to continue",
+                        'end' : "This concludes the experiment. Please ask the experimenter to help remove the devices.",
+                        'termination' : "The experiment has been terminated. Please ask the experimenter to help remove the devices."
+}
+
+cue_demo_text = 'When you are completely relaxed, press any key to start the next block...'
+
+response_instructions = {'Pain': 'How painful was the shock?',
+                         'Expectancy': 'How painful do you expect the next shock to be?',
+                         'Shock': 'Press spacebar to activate the shock',
+                         'Check': 'Would you like to try the next level of shock?'}
 
 # set up screen
 win = visual.Window(
@@ -93,53 +123,14 @@ fix_stim = visual.TextStim(win,
                             height = 50,
                             font = 'Roboto Mono Medium')
 
-cue_duration = 3 #NOTE cue duration still necessary for duration of treatment active time
-
-iti = 2
-expectancy_response_duration = 4
-pain_response_duration = float('inf')
-response_hold = 1 # How long the rating screen is left on the response (only used for Pain ratings)
-
-# TENS/low shock
-# TENS/high shock
-# no TENs/high shock
-# context stuff
-context = {"A":0,"B":1,"calibration":0}
-stimulus_name = ["TENS", "pulse monitor"]
-
-# text stimuli
-instructions_text = {'welcome': "Welcome to the experiment! Please read the following instructions carefully.",      
-                     'calibration' : "Firstly, we're going to calibrate the pain intensity for the shocks you’ll receive in the experiment. As this is a study about pain, we want you to feel a little bit of pain, but nothing unbearable.\
-The machine will start very low, and then will gradually work up. We want to get to a level which is painful but tolerable, so imagine a rating of around 60 to 70 out of 100, where 1 is not painful and 10 is very painful.\n\
-After each shock you will be asked if that level was ok, and if you want to try the next level. You can always come back down if it becomes too uncomfortable!\n\
-Please ask the experimenter if you have any questions at anytime",
-                     'experiment' : "You will receive a series of electrical shocks and your task is to rate the intensity of the pain caused by each shock on a scale from 0-10. \
-A score of 0 indicates the shock caused NO PAIN A score of 10 indicates the shock was VERY PAINFUL. \
-All shocks will be signaled by a 10sec countdown.\n\
-The shock will occur when an X appears. The " + stimulus_name[group-1] + " will be activated on some trials. \
-As you are waiting for the shock during the countdown, you will also be asked to rate some of your emotions, e.g. expectancy and distress.\n\n\
-Please ask the experimenter if you have any questions now.",
-                        'continue' : "\nPress spacebar to continue",
-                        'end' : "This concludes the experiment. Please ask the experimenter to help remove the devices.",
-                        'termination' : "The experiment has been terminated. Please ask the experimenter to help remove the devices."
-}
-
-cue_demo_text = 'When you are completely relaxed, press any key to start the next block...'
-
-response_instructions = {'Pain': 'How painful was the shock?',
-                         'Expectancy': 'How painful do you <b>expect</b> the next shock to be?',
-                         'Shock': 'Press spacebar to activate the shock',
-                         'Check': 'Would you like to try the next level of shock?'}
-
 #create instruction trials
-
-def instruction_trial(instructions,spacetime): 
+def instruction_trial(instructions,holdtime): 
     visual.TextStim(win,
                     text = instructions,
                     color = 'white',
                     pos = (0,0)).draw()
     win.flip()
-    core.wait(spacetime)
+    core.wait(holdtime)
     visual.TextStim(win,
                     text = instructions,
                     color = 'white',
@@ -150,6 +141,7 @@ def instruction_trial(instructions,spacetime):
                     pos = (0,-300)).draw()
     win.flip()
     event.waitKeys(keyList=['space'])
+    win.flip()
     
 # Create functions
     # Save responses to a CSV file
@@ -180,7 +172,8 @@ def exit_screen(instructions):
     
 def termination_check(): #insert throughout experiment so participants can end at any point.
     keys_pressed = event.getKeys(keyList=['escape'])  # Check for 'escape' key during countdown
-    if 'escape' in keys_pressed:
+    if 'escape' in keys_pressed:     
+        # Save participant information
         save_data(trial_order)
         exit_screen(instructions_text["termination"])
         core.quit()
@@ -188,23 +181,29 @@ def termination_check(): #insert throughout experiment so participants can end a
 
 # Define trials
 # Calibration trials
-trial_order = []
-
-for i in range(1,len(shock_high_trig_list)):
+calib_trial_order = []
+for i in shock_high_trig_list:
+    temp_trial_order = []
     trial = {
-        "phase": "calibration",
-        "blocknum": i,
+        "phase": 'calibration',
+        "blocknum": 'calibration',
         "stimulus": 0,
         "outcome": 'high',
-        "context": "calibration",
-        "trialname": "calibration"
+        "context": 'calibration',
+        "trialname": 'calibration'
         } 
+    temp_trial_order.append(trial)
+    
+    calib_trial_order.extend(temp_trial_order)
 
 # Setting conditioning trial order
+# Number of trials
+trial_order = []
+
 #### 4 x blocks (2 TENS + low shock, 2 control + high shock)
 num_blocks_conditioning = 4
-num_TENS_low = 2
-num_control_high = 2
+num_TENS_low = 4
+num_control_high = 4
 
 # 2 probe trials in last 2 blocks
 num_probe_blocks = 2
@@ -281,8 +280,8 @@ for i in range(num_blocks_conditioning - num_probe_blocks + 1, num_blocks_condit
 # Setting extinction trial order
 # 4 extinction blocks * (2 TENS + high shock, 2 control + high shock)
 num_blocks_extinction = 4
-num_TENS_high = 2
-num_control_high = 2
+num_TENS_high = 4
+num_control_high = 4
 
 for i in range(1, num_blocks_extinction + 1):
     temp_trial_order = []
@@ -319,35 +318,36 @@ for i in range(1, num_blocks_extinction + 1):
     random.shuffle(temp_trial_order)
     trial_order.extend(temp_trial_order)
     
-    # Setting extinction trial order
-# 4 extinction blocks * (2 TENS + high shock, 2 control + high shock)
-num_blocks_test = 2
-num_TENS_high = 2
-num_control_high = 2
+# Setting renewal test trial order
+# 2 renewal blocks * (4 TENS + high shock, 4 control + high shock)
+num_blocks_renewal = 2
+num_TENS_high = 4
+num_control_high = 4
 
-for i in range(1, num_blocks_extinction + 1):
+for i in range(1, num_blocks_renewal + 1):
     temp_trial_order = []
     
     for j in range(1, num_TENS_high + 1):
         trial = {
-            "phase": "test",
+            "phase": "renewal",
             "blocknum": i,
             "stimulus": 'TENS',
             "outcome": 'high',
             "trialname": "TENS_high",
-            "context": "A"
+            "context": 'A'
         }
+        
+        temp_trial_order.append(trial)
     
     for k in range(1, num_control_high + 1):
         trial = {
-            "phase": "test",
+            "phase": "renewal",
             "blocknum": i,
             "stimulus": 'control',
             "outcome": 'high',
             "trialname": "control_high",
-            "context": "A"
+            "context": 'A'
         }
-
         temp_trial_order.append(trial)
     
     random.shuffle(temp_trial_order)
@@ -357,14 +357,6 @@ for i in range(1, num_blocks_extinction + 1):
 for trialnum, trial in enumerate(trial_order, start=1):
     trial['trialnum'] = trialnum
     
-# Put in participant information
-
-for trial in trial_order:
-    trial['PID'] = P_info['PID']
-    trial['group'] = group
-    trial['group_name'] = group_name
-    trial['cb'] = cb
-
 #Test questions
 rating_stim = { 'Pain': visual.Slider(win,
                                     pos = (0,-200),
@@ -388,50 +380,73 @@ rating_stim['Pain'].marker.color = 'yellow'
 rating_stim['Expectancy'].marker.size = (30,30)
 rating_stim['Expectancy'].marker.color = 'yellow'
 
-def create_button(win, text, x, y, name):
-    button_text = visual.TextStim(win,
-                                  text=text,
-                                  color='white',
-                                  height=50,
-                                  pos=(x, y))
-    button = visual.Rect(win,
+# Define button_text and calib_buttons dictionaries
+button_text = {
+    'Higher': visual.TextStim(win,
+                              text="Next level",
+                              color='white',
+                              height=50,
+                              pos=(-480, 0)),
+    'Lower': visual.TextStim(win,
+                             text="Previous level",
+                             color='white',
+                             height=50,
+                             pos=(0, 0)),
+    'Same': visual.TextStim(win,
+                            text="This is moderately painful",
+                            color='white',
+                            height=50,
+                            pos=(480, 0))
+}
+
+calib_buttons = {
+    'Higher': visual.Rect(win,
+                          width=200,
+                          height=80,
+                          fillColor='lightgray',
+                          lineColor='lightgray',
+                          pos=(-480, 0)),
+    'Lower': visual.Rect(win,
                          width=200,
                          height=80,
                          fillColor='lightgray',
                          lineColor='lightgray',
-                         pos=(x, y))
-    return button_text, button
-
-# Define button names and positions
-button_info = {
-        'Higher': (-480,0, 'Next level'),
-        'Stay': (480,0, 'This is moderately painful'),
-        'Lower': (0,0,'Previous level')
+                         pos=(0, 0)),
+    'Same': visual.Rect(win,
+                        width=200,
+                        height=80,
+                        fillColor='lightgray',
+                        lineColor='lightgray',
+                        pos=(480, 0))
 }
 
-# Create buttons and text
-buttons = {}
-for button_name, (x,y,text) in button_info.items():
-    buttons[button_name] = create_button(win, text, x,y, button_name)
 
 
-#### Make trial
-    # calibrations
-calib_level = 0
+calib_finish = False
+
+#### Make trial functions
+    # calibration trials
 def show_calib_trial(current_trial):
-    event.waitKeys(keyList=['space']).draw()
+    global calib_finish
+    termination_check()
+    
+    
     # Wait for participant to ready up for shock
     visual.TextStim(win,
         text=response_instructions['Shock'],
-        pos = (0,-100)),
+        pos = (0,-100)
+        ).draw()
+    
     win.flip()
-    
-    
-    pain_rating.reset()
     # deliver shock
-    
+    if pport != None:
+        pport.setData(shock_trig['high'])
+        core.wait(shock_duration)
+        pport.setData(0)
+        
     # Get pain rating
     pain_rating = rating_stim['Pain']
+    pain_rating.reset()
     
     while pain_rating.getRating() is None:
         termination_check()
@@ -444,36 +459,47 @@ def show_calib_trial(current_trial):
         win.flip()
          
     current_trial['pain_response'] = pain_rating.getRating()
-    
+
     visual.TextStim(win,
             text=response_instructions['Check'],
             pos = (0,-100),
             ).draw()
-    win.flip()
-        
-        # draw buttons
-    # Ask if participant wants to progress to the next level
-    for button_name, (button_text, button) in buttons.items():
-        button.draw()
-        button_text.draw()
+
+    # Draw buttons and text
+    for button_name, button_rect in calib_buttons.items():
+        button_rect.draw()
+        button_text[button_name].draw()
+
 
     win.flip()
     
-    # Monitor mouse events
-    while True:
-        for mouse_event in event.getMouse():
-            if mouse_event.getPressed()[0]:
-                for button_name, (button_text, button) in buttons.items():
-                    if button.contains(mouse_event):
-                        print(f"Button '{button_name}' clicked!")
-                        core.quit()
-
-    # if pain rating < 65, give option to go to the next one. If it's too high, give option to go back a level. Do we need to tell them what the target pain rating is? 
+    # Wait for a mouse click
+    trial_finish = False
+    mouse = event.Mouse()
+    mouse.clickReset()
     
+    while trial_finish == False:
+        for button_name, button_rect in calib_buttons.items():
+            if mouse.isPressedIn(button_rect):
+                if button_name == 'Higher':
+                    shock_trig['high'] = shock_trig['high'] + 1
+                    trial_finish = True
+                    
+                elif button_name == 'Lower':
+                    shock_trig['high'] = shock_trig['high'] - 1
+                    trial_finish = True
+                    calib_finish = True
+                    
+                elif button_name == 'Same':
+                    trial_finish = True
+                    calib_finish = True
+
+    win.flip()
+
+
+# if pain rating < 65, give option to go to the next one. If it's too high, give option to go back a level. Do we need to tell them what the target pain rating is? 
     # need to also give option to go backwards
     
-
-
 def show_trial(current_trial):
     if pport != None:
         pport.setData(context_trig[current_trial['context']])
@@ -494,7 +520,7 @@ def show_trial(current_trial):
                         text=str(int(math.ceil(countdown_timer.getTime())))).draw()
         win.flip()
     
-    while countdown_timer.getTime() > 8: #turn on TENS at 8 seconds
+    while countdown_timer.getTime() < 8 and countdown_timer.getTime() > 7: #turn on TENS at 8 seconds
         if pport != None:
             pport.setData(context_trig[current_trial['context']]+TENS_trig)
             
@@ -504,7 +530,7 @@ def show_trial(current_trial):
                         text=str(int(math.ceil(countdown_timer.getTime())))).draw()
         win.flip()
     
-    while countdown_timer.getTime() > 7: #ask for expectancy at 7 seconds
+    while countdown_timer.getTime() < 7 and countdown_timer.getTime() > 0: #ask for expectancy at 7 seconds
         termination_check()
         visual.TextStim(win, 
                         color='white', 
@@ -513,6 +539,7 @@ def show_trial(current_trial):
                 text=response_instructions['Expectancy'],
                 pos = (0,-100),
                 ).draw()
+        
         # Ask for expectancy rating 
         exp_rating.draw()
 
@@ -527,7 +554,7 @@ def show_trial(current_trial):
     
     if pport != None:
         pport.setData(context_trig[current_trial['context']]+shock_trig[current_trial['outcome']])
-        core.wait(0.5)
+        core.wait(shock_duration)
         pport.setData(context_trig[current_trial['context']])
     
     # Get pain rating
@@ -571,13 +598,32 @@ exp_finish = False
 
 # Run experiment
 while not exp_finish:
+    #display welcome and calibration instructions
     instruction_trial(instructions_text['welcome'],3)
-    instruction_trial(instructions_text["calibration"],5)
-    instruction_trial(instructions_text["experiment"],5)
+    # instruction_trial(instructions_text["calibration"],5)
+    
+    # for trial in calib_trial_order:
+        # show_calib_trial(trial)
+
+    trial_order.extend(calib_trial_order)
     
     for trial in trial_order:
+        trial['PID'] = P_info['PID']
+        trial['group'] = group
+        trial['group_name'] = group_name
+        trial['cb'] = cb
+        trial['shock_level'] = shock_trig['high']
+        trial['shock_high'] = shock_trig['high']
+        trial['shock_low'] = shock_trig['low']
+        
+    #display main experiment phase
+    instruction_trial(instructions_text["experiment"],5)
+    for trial in trial_order:
         show_trial(trial)
-              
+    
+
+        
+    # save trial data
     save_data(trial_order)
     exit_screen(instructions_text["end"])
     
