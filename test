@@ -1,0 +1,56 @@
+from psychopy import core, event, gui, visual, parallel, prefs
+
+# set up screen
+win = visual.Window(
+    size=(1280, 800), fullscr= True, screen=0,
+    allowGUI=False, allowStencil=False,
+    monitor="testMonitor", color=[0, 0, 0], colorSpace="rgb1",
+    blendMode="avg", useFBO=True,
+    units="pix")
+
+button_text = {
+    "Next": visual.TextStim(win,
+                            text="Try the next shock level",
+                            color="white",
+                            height=25,
+                            pos=(-400, -200),
+                            wrapWidth=300
+                            ),                            
+    "Stay": visual.TextStim(win,
+                            text="Stay at this shock level",
+                            color="white",
+                            height=25,
+                            pos=(0, -200),
+                            wrapWidth=300),
+    "Previous": visual.TextStim(win,
+                            text="Set the previous shock level",
+                            color="white",
+                            height=25,
+                            pos=(400, -200),
+                            wrapWidth=300)
+}
+
+calib_buttons = {
+    "Next": visual.Rect(win,
+                        width=300,
+                        height=80,
+                        fillColor="black",
+                        lineColor="white",
+                        pos=(-400, -200)),
+    "Stay": visual.Rect(win,
+                        width=300,
+                        height=80,
+                        fillColor="black",
+                        lineColor="white",
+                        pos=(0, -200)),
+    "Previous": visual.Rect(win,
+                    width=300,
+                    height=80,
+                    fillColor="black",
+                    lineColor="white",
+                    pos=(400, -200))
+}
+
+buttons_keylist = ["Next","Stay"]
+print(calib_buttons["Next"])
+
