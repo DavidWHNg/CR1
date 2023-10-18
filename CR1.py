@@ -5,7 +5,7 @@ import random
 import csv
 import os
 
-ports_live = None # Set to false if parallel ports not plugged for coding/debugging other parts of exp
+ports_live = True # Set to false if parallel ports not plugged for coding/debugging other parts of exp
 
 ### Experiment details/parameters
 # within experiment parameters
@@ -63,7 +63,7 @@ while True:
 shock_levels = 10
 shock_trig = {"high": 1, "low": 11} #start on lowest levels
 
-TENS_trig = 128 #Pin 8 TENS in AD instrument
+stim_trig = {"TENS": 128, "control": 0} #Pin 8 TENS in AD instrument
 
 if cb == 1:
     context_trig = {"A": 64, "B": 0, "calibration":0} # Pin 7 light for context A, dark for B
@@ -72,11 +72,12 @@ elif cb == 2:
 
 if ports_live == True:
     pport = parallel.ParallelPort(address=0xDFD8) #Get from device Manager
+    pport.setData(0)
     
 elif ports_live == None:
     pport = None #Get from device Manager
 
-shock_duration = 0.5
+shock_duration = 0.8 #needs about 0.5s for port signal to send 
 iti = 1
 pain_response_duration = float("inf")
 response_hold = 1.5 # How long the rating screen is left on the response (only used for Pain ratings)
@@ -92,10 +93,10 @@ After each shock you will be asked if that level was ok, and you will be given t
 Please ask the experimenter if you have any questions at anytime",
     "calibration_finish": "Thank you for completing the calibration, your maximum shock intensity has now been set.",
     "experiment" : "We can now begin the experiment. \n\n\
-You will now receive a series of electrical shocks and your task is to rate the intensity of the pain caused by each shock on a rating scale.\
+You will now receive a series of electrical shocks and your task is to rate the intensity of the pain caused by each shock on a rating scale. \
 This rating scale ranges from NOT PAINFUL to VERY PAINFUL. \n\n\
-All shocks will be signaled by a 10 second countdown. The shock will occur when an X appears, similarly as in the calibration procedure. The TENS will now also be active on some trials.\
-As you are waiting for the shock during the countdown, you will also be asked to rate how painful you expect the following shock to be.\n\n\
+All shocks will be signaled by a 10 second countdown. The shock will occur when an X appears, similarly as in the calibration procedure. The TENS will now also be active on some trials. \
+As you are waiting for the shock during the countdown, you will also be asked to rate how painful you expect the following shock to be. The task should take roughly 10 minutes. \n\n\
 Please ask the experimenter if you have any questions now before proceeding.",
     "continue" : "\n\nPress spacebar to continue",
     "end" : "This concludes the experiment. Please ask the experimenter to help remove the devices.",
@@ -108,14 +109,14 @@ response_instructions = {
     "Pain": "How painful was the shock?",
     "Expectancy": "How painful do you expect the next shock to be?",
     "Shock": "Press spacebar to activate the shock",
-    "Check": "Please indicate whether you wouldlike to try the next level of shock, stay at this level, or go back to the previous level for the experiment.",
+    "Check": "Please indicate whether you would like to try the next level of shock, stay at this level, or go back to the previous level for the experiment.",
     "Check_max": "Note that this is the maximum level of shock.\n\n\
  Would you like to stay at this level or go down a level?"
                          }
 
 # set up screen
 win = visual.Window(
-    size=(1280, 800), fullscr= True, screen=0,
+    size=(1920, 1080), fullscr= True, screen=0,
     allowGUI=False, allowStencil=False,
     monitor="testMonitor", color=[0, 0, 0], colorSpace="rgb1",
     blendMode="avg", useFBO=True,
@@ -150,7 +151,7 @@ def instruction_trial(instructions,holdtime):
                     text = instructions_text["continue"],
                     height = 35,
                     color = "white",
-                    pos = (0,-300)
+                    pos = (0,-400)
                     ).draw()
     win.flip()
     event.waitKeys(keyList=["space"])
@@ -188,8 +189,10 @@ def exit_screen(instructions):
     
 def termination_check(): #insert throughout experiment so participants can end at any point.
     keys_pressed = event.getKeys(keyList=["escape"])  # Check for "escape" key during countdown
-    if "escape" in keys_pressed:     
+    if "escape" in keys_pressed:
+        pport.setData(0) # Set all pins to 0 to shut off context, TENS, shock etc.
         # Save participant information
+
         trial_order.extend(calib_trial_order)
         
         for trial in trial_order:
@@ -212,7 +215,7 @@ for i in range(1,shock_levels+1):
     trial = {
         "phase": "calibration",
         "blocknum": "calibration",
-        "stimulus": 0,
+        "stimulus": "control",
         "outcome": "high",
         "context": "calibration",
         "trialname": "calibration",
@@ -406,7 +409,7 @@ rating_stim = { "Calibration": visual.Slider(win,
                                     pos = (0,-200),
                                     ticks=(0,50,100),
                                     labels=(1,5,10),
-                                    granularity=0,
+                                    granularity=0.5,
                                     size=(600,60),
                                     style=["rating"],
                                     autoLog = False),
@@ -414,7 +417,7 @@ rating_stim = { "Calibration": visual.Slider(win,
                                     pos = (0,-200),
                                     ticks=(0,100),
                                     labels=("Not painful","Very painful"),
-                                    granularity=0,
+                                    granularity=0.5,
                                     size=(600,60),
                                     style=["triangleMarker"],
                                     autoLog = False),
@@ -422,7 +425,7 @@ rating_stim = { "Calibration": visual.Slider(win,
                                     pos = (0,-200),
                                     ticks=[0,100],
                                     labels=("Not painful","Very painful"),
-                                    granularity=0,
+                                    granularity=0.5,
                                     size=(600,60),
                                     style=["triangleMarker"],
                                     autoLog = False)}
@@ -440,20 +443,20 @@ button_text = {
                             text="Try the next shock level",
                             color="white",
                             height=25,
-                            pos=(400, -200),
+                            pos=(400, -300),
                             wrapWidth=300
                             ),                            
     "Stay": visual.TextStim(win,
                             text="Stay at this shock level",
                             color="white",
                             height=25,
-                            pos=(0, -200),
+                            pos=(0, -300),
                             wrapWidth=300),
     "Previous": visual.TextStim(win,
                             text="Set the previous shock level",
                             color="white",
                             height=25,
-                            pos=(-400, -200),
+                            pos=(-400, -300),
                             wrapWidth=300)
 }
 
@@ -463,19 +466,19 @@ calib_buttons = {
                         height=80,
                         fillColor="black",
                         lineColor="white",
-                        pos=(400, -200)),
+                        pos=(400, -300)),
     "Stay": visual.Rect(win,
                         width=300,
                         height=80,
                         fillColor="black",
                         lineColor="white",
-                        pos=(0, -200)),
+                        pos=(0, -300)),
     "Previous": visual.Rect(win,
                     width=300,
                     height=80,
                     fillColor="black",
                     lineColor="white",
-                    pos=(-400, -200))
+                    pos=(-400, -300))
 }
 
 calib_finish = False
@@ -565,9 +568,9 @@ def show_calib_trial(current_trial):
         for button_name, button_rect in calib_buttons.items():
             if mouse.isPressedIn(button_rect):
                 if button_name == "Next":
-                        shock_trig["high"] = shock_trig["high"] + 1
-                        shock_trig["low"] = shock_trig["low"] + 1
-                        trial_finish = True
+                    shock_trig["high"] = shock_trig["high"] + 1
+                    shock_trig["low"] = shock_trig["low"] + 1
+                    trial_finish = True
                     
                 elif button_name == "Stay":
                     calib_finish = True
@@ -608,32 +611,61 @@ def show_trial(current_trial):
     
     while countdown_timer.getTime() < 8 and countdown_timer.getTime() > 7: #turn on TENS at 8 seconds
         if pport != None:
-            pport.setData(context_trig[current_trial["context"]]+TENS_trig)
-            
-        termination_check()
-        visual.TextStim(win, 
-                        color="white", 
-                        height = 50,
-                        text=str(int(math.ceil(countdown_timer.getTime())))).draw()
-        win.flip()
+            termination_check()
+            visual.TextStim(win, 
+                color="white", 
+                height = 50,
+                text=str(int(math.ceil(countdown_timer.getTime())))).draw()
+            win.flip()
+            pport.setData(context_trig[current_trial["context"]]+stim_trig[current_trial["stimulus"]])
+            core.wait(0.1)
+            pport.setData(context_trig[current_trial["context"]])
+            core.wait(0.1)
+        else:            
+            termination_check()
+            visual.TextStim(win, 
+                            color="white", 
+                            height = 50,
+                            text=str(int(math.ceil(countdown_timer.getTime())))).draw()
+            win.flip()
     
     while countdown_timer.getTime() < 7 and countdown_timer.getTime() > 0: #ask for expectancy at 7 seconds
-        termination_check()
-        visual.TextStim(win, 
-                        color="white", 
-                        height = 50,
-                        text=str(int(math.ceil(countdown_timer.getTime())))).draw()
-        visual.TextStim(win,
-                text=response_instructions["Expectancy"],
-                height = 35,
-                pos = (0,-100),
-                ).draw()
-        
-        # Ask for expectancy rating 
-        exp_rating.draw()
+        if pport != None:
+            termination_check()
+            visual.TextStim(win, 
+                            color="white", 
+                            height = 50,
+                            text=str(int(math.ceil(countdown_timer.getTime())))).draw()
+            visual.TextStim(win,
+                    text=response_instructions["Expectancy"],
+                    height = 35,
+                    pos = (0,-100),
+                    ).draw()
+            
+            # Ask for expectancy rating 
+            exp_rating.draw()
+            win.flip()
 
-        win.flip()
-        
+            pport.setData(context_trig[current_trial["context"]]+stim_trig[current_trial["stimulus"]])
+            core.wait(0.1)
+            pport.setData(context_trig[current_trial["context"]])
+            core.wait(0.1)
+        else:
+            termination_check()
+            visual.TextStim(win, 
+                            color="white", 
+                            height = 50,
+                            text=str(int(math.ceil(countdown_timer.getTime())))).draw()
+            visual.TextStim(win,
+                    text=response_instructions["Expectancy"],
+                    height = 35,
+                    pos = (0,-100),
+                    ).draw()
+            
+            # Ask for expectancy rating 
+            exp_rating.draw()
+            win.flip()        
+
     current_trial["exp_response"] = exp_rating.getRating() #saves the expectancy response for that trial
     exp_rating.reset() #resets the expectancy slider for subsequent trials
         
@@ -694,7 +726,7 @@ exp_finish = False
 while not exp_finish:
     #display welcome and calibration instructions
     instruction_trial(instructions_text["welcome"],3)
-    instruction_trial(instructions_text["TENS_introduction",3])
+    instruction_trial(instructions_text["TENS_introduction"],3)
     instruction_trial(instructions_text["calibration"],8)
     
     for trial in calib_trial_order:
@@ -709,7 +741,7 @@ while not exp_finish:
     for trial in trial_order:
         show_trial(trial)
 
-        
+    pport.setData(0) # Set all pins to 0 to shut off context, TENS, shock etc.    
     # save trial data
     save_data(trial_order)
     exit_screen(instructions_text["end"])
