@@ -5,7 +5,7 @@ import random
 import csv
 import os
 
-ports_live = True # Set to false if parallel ports not plugged for coding/debugging other parts of exp
+ports_live = None # Set to false if parallel ports not plugged for coding/debugging other parts of exp
 
 ### Experiment details/parameters
 # within experiment parameters
@@ -80,7 +80,7 @@ elif ports_live == None:
 shock_duration = 0.8 #needs about 0.5s for port signal to send 
 iti = 1
 pain_response_duration = float("inf")
-response_hold = 1.5 # How long the rating screen is left on the response (only used for Pain ratings)
+response_hold = 2 # How long the rating screen is left on the response (only used for Pain ratings)
 
 # text stimuli
 instructions_text = {
@@ -96,7 +96,7 @@ Please ask the experimenter if you have any questions at anytime",
 You will now receive a series of electrical shocks and your task is to rate the intensity of the pain caused by each shock on a rating scale. \
 This rating scale ranges from NOT PAINFUL to VERY PAINFUL. \n\n\
 All shocks will be signaled by a 10 second countdown. The shock will occur when an X appears, similarly as in the calibration procedure. The TENS will now also be active on some trials. \
-As you are waiting for the shock during the countdown, you will also be asked to rate how painful you expect the following shock to be. The task should take roughly 10 minutes. \n\n\
+As you are waiting for the shock during the countdown, you will also be asked to rate how painful you expect the following shock to be. After each trial there will be a brief interval to allow you to rest between shocks. The task should take roughly 10 minutes. \n\n\
 Please ask the experimenter if you have any questions now before proceeding.",
     "continue" : "\n\nPress spacebar to continue",
     "end" : "This concludes the experiment. Please ask the experimenter to help remove the devices.",
@@ -409,33 +409,43 @@ rating_stim = { "Calibration": visual.Slider(win,
                                     pos = (0,-200),
                                     ticks=(0,50,100),
                                     labels=(1,5,10),
-                                    granularity=0.5,
-                                    size=(600,60),
+                                    granularity=0,
+                                    size=(600,90),
                                     style=["rating"],
-                                    autoLog = False),
+                                    autoLog = False,
+                                    labelHeight = 30),
                 "Pain": visual.Slider(win,
                                     pos = (0,-200),
                                     ticks=(0,100),
                                     labels=("Not painful","Very painful"),
-                                    granularity=0.5,
-                                    size=(600,60),
-                                    style=["triangleMarker"],
-                                    autoLog = False),
+                                    granularity=0,
+                                    size=(600,90),
+                                    style=["rating"],
+                                    autoLog = False,
+                                    labelHeight = 30),
                 "Expectancy": visual.Slider(win,
                                     pos = (0,-200),
                                     ticks=[0,100],
                                     labels=("Not painful","Very painful"),
-                                    granularity=0.5,
-                                    size=(600,60),
-                                    style=["triangleMarker"],
-                                    autoLog = False)}
+                                    granularity=0,
+                                    size=(600,90),
+                                    style=["rating"],
+                                    autoLog = False,
+                                    labelHeight = 30)}
 
 rating_stim["Pain"].marker.size = (30,30)
 rating_stim["Pain"].marker.color = "yellow"
+rating_stim["Pain"].validArea.size = (600,300)
+
 rating_stim["Calibration"].marker.size = (30,30)
 rating_stim["Calibration"].marker.color = "yellow"
+rating_stim["Calibration"].validArea.size = (600,300)
+
 rating_stim["Expectancy"].marker.size = (30,30)
 rating_stim["Expectancy"].marker.color = "yellow"
+rating_stim["Expectancy"].validArea.size = (600,300)
+
+
 
 # Define button_text and calib_buttons dictionaries
 button_text = {
@@ -500,11 +510,10 @@ def show_calib_trial(current_trial):
     win.flip()
     event.waitKeys(keyList = ["space"])
     
-    # deliver pain
+    # show fixation stimulus + deliver shock
     fix_stim.draw()
     win.flip()
     
-    # deliver shock
     if pport != None:
         pport.setData(shock_trig["high"])
         core.wait(shock_duration)
@@ -514,7 +523,6 @@ def show_calib_trial(current_trial):
     
     # Get pain rating
     calib_rating = rating_stim["Calibration"]
-    calib_rating.reset()
     
     while calib_rating.getRating() is None:
         termination_check()
@@ -527,7 +535,22 @@ def show_calib_trial(current_trial):
         calib_rating.draw()
         win.flip()
          
+         
+    pain_response_end_time = core.getTime() + response_hold # amount of time for participants to adjust slider after making a response
+    
+    while core.getTime() < pain_response_end_time:
+        termination_check()
+            
+        visual.TextStim(win,
+                text=response_instructions["Pain"],
+                height = 35,
+                pos = (0,-100),
+                ).draw()
+        calib_rating.draw()
+        win.flip()
+
     current_trial["pain_response"] = calib_rating.getRating()
+    calib_rating.reset()
     
     win.flip()
     core.wait(1)
@@ -585,9 +608,6 @@ def show_calib_trial(current_trial):
     win.flip()
     
     core.wait(iti)
-
-# if pain rating < 65, give option to go to the next one. If it"s too high, give option to go back a level. Do we need to tell them what the target pain rating is? 
-    # need to also give option to go backwards
     
 def show_trial(current_trial):
     if pport != None:
@@ -682,11 +702,9 @@ def show_trial(current_trial):
     
     # Get pain rating
     pain_rating = rating_stim["Pain"]
-    pain_rating.reset()
     
     while pain_rating.getRating() is None:
         termination_check()
-            
         visual.TextStim(win,
                 text=response_instructions["Pain"],
                 height = 35,
@@ -694,7 +712,7 @@ def show_trial(current_trial):
                 ).draw()
         pain_rating.draw()
         win.flip()
-        
+            
     pain_response_end_time = core.getTime() + response_hold # amount of time for participants to adjust slider after making a response
     
     while core.getTime() < pain_response_end_time:
@@ -707,7 +725,9 @@ def show_trial(current_trial):
             ).draw()
         pain_rating.draw()
         win.flip()
-        current_trial["pain_response"] = pain_rating.getRating()
+        
+    current_trial["pain_response"] = pain_rating.getRating()
+    pain_rating.reset()
 
     win.flip()
     
@@ -725,16 +745,16 @@ exp_finish = False
 # Run experiment
 while not exp_finish:
     #display welcome and calibration instructions
-    instruction_trial(instructions_text["welcome"],3)
-    instruction_trial(instructions_text["TENS_introduction"],3)
-    instruction_trial(instructions_text["calibration"],8)
+    # instruction_trial(instructions_text["welcome"],3)
+    # instruction_trial(instructions_text["TENS_introduction"],3)
+    # instruction_trial(instructions_text["calibration"],8)
     
     for trial in calib_trial_order:
         show_calib_trial(trial)
         if calib_finish == True:
             break
     
-    instruction_trial(instructions_text["calibration_finish"],3)
+    # instruction_trial(instructions_text["calibration_finish"],3)
     
     #display main experiment phase
     instruction_trial(instructions_text["experiment"],5)
