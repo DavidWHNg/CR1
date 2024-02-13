@@ -5,7 +5,7 @@ import random
 import csv
 import os
 
-ports_live = None # Set to None if parallel ports not plugged for coding/debugging other parts of exp
+ports_live = True # Set to None if parallel ports not plugged for coding/debugging other parts of exp
 
 ### Experiment details/parameters
 # misc parameters
@@ -13,7 +13,7 @@ port_buffer_duration = 0.5 #needs about 0.5s buffer for port signal to reset
 iti = 3
 pain_response_duration = float("inf")
 response_hold_duration = 1 # How long the rating screen is left on the response (only used for Pain ratings)
-TENS_pulse_int = 0.1 # interval length for TENS on/off signals (e.g. 0.1 = 0.2s per pulse) NOTE; likely only 1 decimal place precision
+TENS_pulse_int = 0.1 # interval length for TENS on/off signals (e.g. 0.1 = 0.2s per pulse)
 
 # within experiment parameters
 P_info = {"PID": ""}
@@ -549,7 +549,7 @@ def show_calib_trial(current_trial):
 
     while True: 
         current_rating = calib_rating.getRating()
-        # termination_check()
+        termination_check()
         if current_rating:
             break  
         pain_text.draw()
@@ -559,7 +559,7 @@ def show_calib_trial(current_trial):
     pain_response_end_time = core.getTime() + response_hold_duration # amount of time for participants to adjust slider after making a response
     
     while core.getTime() < pain_response_end_time:
-        # termination_check()
+        termination_check()
         pain_text.draw()
         calib_rating.draw()
         win.flip()
@@ -634,49 +634,50 @@ def show_trial(current_trial):
     
     # Make a count-down screen
     countdown_timer = core.CountdownTimer(10)  # Set the initial countdown time to 10 seconds
-    
+  
     while countdown_timer.getTime() > 8:
         termination_check()
         countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
         win.flip()
     
+        TENS_timer = countdown_timer.getTime() + TENS_pulse_int
     while countdown_timer.getTime() < 8 and countdown_timer.getTime() > 7: #turn on TENS at 8 seconds
+        termination_check()
+        
         if pport != None:
             # turn on TENS pulses if TENS trial, at an on/off interval speed of TENS_pulse_int
-            TENS_timer = round(countdown_timer.getTime() - TENS_pulse_int,2) # initiating variable equal to if statement ensures pulses start at 8 seconds
-            if round(countdown_timer - TENS_pulse_int,2) == TENS_timer:
+            if countdown_timer.getTime() < TENS_timer - TENS_pulse_int:
                 pport.setData(context_trig[current_trial["context"]]+stim_trig[current_trial["stimulus"]])
-            
-            if round(countdown_timer - 2*TENS_pulse_int,2) == TENS_timer:
+            if countdown_timer.getTime() < TENS_timer - TENS_pulse_int*2:
                 pport.setData(context_trig[current_trial["context"]])
-                TENS_timer = round(countdown_timer.getTime(),2)
-            
-            termination_check()
+                TENS_timer = countdown_timer.getTime() 
+
             countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
             win.flip()
             
         else:            
-            termination_check()
             countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
             win.flip()
     
+    TENS_timer = countdown_timer.getTime() + TENS_pulse_int
+
     while countdown_timer.getTime() < 7 and countdown_timer.getTime() > 0: #ask for expectancy at 7 seconds
         if pport != None:
             termination_check()
+                      
+            # turn on TENS pulses if TENS trial, at an on/off interval speed of TENS_pulse_int
+            if countdown_timer.getTime() < TENS_timer - TENS_pulse_int:
+                pport.setData(context_trig[current_trial["context"]]+stim_trig[current_trial["stimulus"]])
+            if countdown_timer.getTime() < TENS_timer - TENS_pulse_int*2:
+                pport.setData(context_trig[current_trial["context"]])
+                TENS_timer = countdown_timer.getTime() 
+
             countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
             
             # Ask for expectancy rating
             exp_text.draw() 
             exp_rating.draw()
             win.flip()
-
-            TENS_timer = countdown_timer.getTime()
-            if countdown_timer - TENS_pulse_int == TENS_timer:
-                pport.setData(context_trig[current_trial["context"]]+stim_trig[current_trial["stimulus"]])
-            
-            if countdown_timer - 2*TENS_pulse_int == TENS_timer:
-                pport.setData(context_trig[current_trial["context"]])
-                TENS_timer = countdown_timer.getTime()
                 
         else:
             termination_check()
@@ -737,19 +738,19 @@ exp_finish = False
 while not exp_finish:
     termination_check()
     #display welcome and calibration instructions
-    instruction_trial(instructions_text["welcome"],3)
-    instruction_trial(instructions_text["TENS_introduction"],3)
-    instruction_trial(instructions_text["calibration"],8)
+    # instruction_trial(instructions_text["welcome"],3)
+    # instruction_trial(instructions_text["TENS_introduction"],3)
+    # instruction_trial(instructions_text["calibration"],8)
     
-    for trial in calib_trial_order:
-        show_calib_trial(trial)
-        if calib_finish == True:
-            break
+    # for trial in calib_trial_order:
+    #     show_calib_trial(trial)
+    #     if calib_finish == True:
+    #         break
     
-    instruction_trial(instructions_text["calibration_finish"],3)
+    # instruction_trial(instructions_text["calibration_finish"],3)
     
-    #display main experiment phase
-    instruction_trial(instructions_text["experiment"],10)
+    # #display main experiment phase
+    # instruction_trial(instructions_text["experiment"],10)
     for trial in trial_order:
         show_trial(trial)
 
