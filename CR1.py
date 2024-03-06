@@ -101,6 +101,7 @@ fix_stim = visual.TextStim(win,
 
 #create instruction trials
 def instruction_trial(instructions,holdtime): 
+    termination_check()
     visual.TextStim(win,
                     text = instructions,
                     height = 35,
@@ -308,9 +309,9 @@ for i in range(1, num_blocks_extinction + 1):
             "pain_response": None
         }
         if group == 1:
-            trial["context"] = "A"
-        elif group == 2:
             trial["context"] = "B"
+        elif group == 2:
+            trial["context"] = "A"
         temp_trial_order.append(trial)
     
     for k in range(1, num_control_high + 1):
@@ -523,7 +524,7 @@ calib_finish = False
     # calibration trials
 def show_calib_trial(current_trial):
     global calib_finish
-    
+    termination_check()
     # Wait for participant to ready up for shock
     visual.TextStim(win,
         text=response_instructions["Shock"],
