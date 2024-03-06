@@ -308,9 +308,9 @@ for i in range(1, num_blocks_extinction + 1):
             "pain_response": None
         }
         if group == 1:
-            trial["context"] = "A"
-        elif group == 2:
             trial["context"] = "B"
+        elif group == 2:
+            trial["context"] = "A"
         temp_trial_order.append(trial)
     
     for k in range(1, num_control_high + 1):
