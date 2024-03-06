@@ -9,7 +9,7 @@ ports_live = True # Set to None if parallel ports not plugged for coding/debuggi
 
 ### Experiment details/parameters
 # misc parameters
-port_buffer_duration = 0.5 #needs about 0.5s buffer for port signal to reset 
+port_buffer_duration = 1 #needs about 0.5s buffer for port signal to reset 
 iti = 3
 pain_response_duration = float("inf")
 response_hold_duration = 1 # How long the rating screen is left on the response (only used for Pain ratings)
@@ -127,11 +127,21 @@ def instruction_trial(instructions,holdtime):
     event.waitKeys(keyList=["space"])
     win.flip()
     
-    core.wait(2)
+    core.wait(iti)
     
 # Create functions
     # Save responses to a CSV file
 def save_data(data):
+
+    trial_order.extend(calib_trial_order)
+    
+    for trial in trial_order:
+        trial["PID"] = P_info["PID"]
+        trial["group"] = group
+        trial["group_name"] = group_name
+        trial["cb"] = cb
+        trial["shock_level"] = shock_trig["high"]
+
     # Extract column names from the keys in the first trial dictionary
     colnames = list(trial_order[0].keys())
 
@@ -160,19 +170,10 @@ def exit_screen(instructions):
 def termination_check(): #insert throughout experiment so participants can end at any point.
     keys_pressed = event.getKeys(keyList=["escape"])  # Check for "escape" key during countdown
     if "escape" in keys_pressed:
-        if ports_live == True:
+        if ports_live:
             pport.setData(0) # Set all pins to 0 to shut off context, TENS, shock etc.
         # Save participant information
 
-        trial_order.extend(calib_trial_order)
-        
-        for trial in trial_order:
-            trial["PID"] = P_info["PID"]
-            trial["group"] = group
-            trial["group_name"] = group_name
-            trial["cb"] = cb
-            trial["shock_level"] = shock_trig["high"]
-            
         save_data(trial_order)
         exit_screen(instructions_text["termination"])
         core.quit()
@@ -378,19 +379,19 @@ for trialnum, trial in enumerate(trial_order, start=1):
 #Test questions
 rating_stim = { "Calibration": visual.Slider(win,
                                     pos = (0,-200),
-                                    ticks=(0,50,100),
+                                    ticks=[0,50,100],
                                     labels=(1,5,10),
-                                    granularity=0,
-                                    size=(600,90),
+                                    granularity=0.1,
+                                    size=(600,60),
                                     style=["rating"],
                                     autoLog = False,
                                     labelHeight = 30),
                 "Pain": visual.Slider(win,
                                     pos = (0,-200),
-                                    ticks=(0,100),
+                                    ticks=[0,100],
                                     labels=("Not painful","Very painful"),
-                                    granularity=0,
-                                    size=(600,90),
+                                    granularity=0.1,
+                                    size=(600,60),
                                     style=["rating"],
                                     autoLog = False,
                                     labelHeight = 30),
@@ -398,23 +399,23 @@ rating_stim = { "Calibration": visual.Slider(win,
                                     pos = (0,-200),
                                     ticks=[0,100],
                                     labels=("Not painful","Very painful"),
-                                    granularity=0,
-                                    size=(600,90),
+                                    granularity=0.1,
+                                    size=(600,60),
                                     style=["rating"],
                                     autoLog = False,
                                     labelHeight = 30)}
 
 rating_stim["Pain"].marker.size = (30,30)
 rating_stim["Pain"].marker.color = "yellow"
-rating_stim["Pain"].validArea.size = (660,150)
+rating_stim["Pain"].validArea.size = (660,100)
 
 rating_stim["Calibration"].marker.size = (30,30)
 rating_stim["Calibration"].marker.color = "yellow"
-rating_stim["Calibration"].validArea.size = (660,150)
+rating_stim["Calibration"].validArea.size = (660,100)
 
 rating_stim["Expectancy"].marker.size = (30,30)
 rating_stim["Expectancy"].marker.color = "yellow"
-rating_stim["Expectancy"].validArea.size = (660,150)
+rating_stim["Expectancy"].validArea.size = (660,100)
 
 
 pain_rating = rating_stim["Pain"]
@@ -466,7 +467,7 @@ exp_text = visual.TextStim(win,
             ) 
 # pre-draw countdown stimuli (numbers 10-1)
 countdown_text = {}
-for i in range(1,11):
+for i in range(0,11):
     countdown_text[str(i)] = visual.TextStim(win, 
                             color="white", 
                             height = 50,
@@ -535,6 +536,9 @@ def show_calib_trial(current_trial):
     event.waitKeys(keyList = ["space"])
     
     # show fixation stimulus + deliver shock
+    if pport != None:
+        pport.setData(0)
+
     fix_stim.draw()
     win.flip()
     
@@ -543,15 +547,9 @@ def show_calib_trial(current_trial):
         core.wait(port_buffer_duration)
         pport.setData(0)
     
-    core.wait(1)
-    
     # Get pain rating
-
-    while True: 
-        current_rating = calib_rating.getRating()
+    while calib_rating.getRating() is None: # while mouse unclicked
         termination_check()
-        if current_rating:
-            break  
         pain_text.draw()
         calib_rating.draw()
         win.flip()
@@ -568,7 +566,7 @@ def show_calib_trial(current_trial):
     calib_rating.reset()
     
     win.flip()
-    core.wait(2)
+    core.wait(iti)
     
     if shock_trig["high"] < 10:
         visual.TextStim(win,
@@ -652,12 +650,9 @@ def show_trial(current_trial):
                 pport.setData(context_trig[current_trial["context"]])
                 TENS_timer = countdown_timer.getTime() 
 
-            countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
-            win.flip()
-            
-        else:            
-            countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
-            win.flip()
+        countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
+        win.flip()
+
     
     TENS_timer = countdown_timer.getTime() + TENS_pulse_int
 
@@ -672,26 +667,19 @@ def show_trial(current_trial):
                 pport.setData(context_trig[current_trial["context"]])
                 TENS_timer = countdown_timer.getTime() 
 
-            countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
-            
-            # Ask for expectancy rating
-            exp_text.draw() 
-            exp_rating.draw()
-            win.flip()
-                
-        else:
-            termination_check()
-            countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
-            exp_text.draw()
-            
-            # Ask for expectancy rating 
-            exp_rating.draw()
-            win.flip()        
+        countdown_text[str(int(math.ceil(countdown_timer.getTime())))].draw()
+        
+        # Ask for expectancy rating
+        exp_text.draw() 
+        exp_rating.draw()
+        win.flip()    
 
     current_trial["exp_response"] = exp_rating.getRating() #saves the expectancy response for that trial
     exp_rating.reset() #resets the expectancy slider for subsequent trials
         
     # deliver shock
+    if pport != None:
+        pport.setData(context_trig[current_trial["context"]])
     fix_stim.draw()
     win.flip()
     
@@ -699,9 +687,7 @@ def show_trial(current_trial):
         pport.setData(context_trig[current_trial["context"]]+shock_trig[current_trial["outcome"]])
         core.wait(port_buffer_duration)
         pport.setData(context_trig[current_trial["context"]])
-        
-    core.wait(1)
-    
+
     # Get pain rating
     while pain_rating.getRating() is None: # while mouse unclicked
         termination_check()
@@ -738,19 +724,19 @@ exp_finish = False
 while not exp_finish:
     termination_check()
     #display welcome and calibration instructions
-    # instruction_trial(instructions_text["welcome"],3)
-    # instruction_trial(instructions_text["TENS_introduction"],3)
-    # instruction_trial(instructions_text["calibration"],8)
+    instruction_trial(instructions_text["welcome"],3)
+    instruction_trial(instructions_text["TENS_introduction"],3)
+    instruction_trial(instructions_text["calibration"],8)
     
-    # for trial in calib_trial_order:
-    #     show_calib_trial(trial)
-    #     if calib_finish == True:
-    #         break
+    for trial in calib_trial_order:
+        show_calib_trial(trial)
+        if calib_finish == True:
+            break
     
-    # instruction_trial(instructions_text["calibration_finish"],3)
+    instruction_trial(instructions_text["calibration_finish"],3)
     
     # #display main experiment phase
-    # instruction_trial(instructions_text["experiment"],10)
+    instruction_trial(instructions_text["experiment"],10)
     for trial in trial_order:
         show_trial(trial)
 
